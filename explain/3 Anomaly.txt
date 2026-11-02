@@ -1,7 +1,4 @@
-================================================================================
-CELL 1: Imports & Reproducibility Setup
-================================================================================
-[CODE]
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -21,35 +18,16 @@ from tensorflow.keras import layers, models
 np.random.seed(42)
 tf.random.set_seed(42)
 
-[OUTPUT]
-(No output displayed; libraries loaded and random seeds set to 42)
 
-
-================================================================================
-CELL 2: Data Loading & Initial Inspection
-================================================================================
-[CODE]
 # Direct relative path since the CSV is in the same folder as the notebook
 df = pd.read_csv('Credit_Card_Applications.csv')
 
 print("Dataset Shape:", df.shape)
 df.head()
 
-[OUTPUT]
-Dataset Shape: (690, 16)
-
-   CustomerID  A1     A2     A3  A4  A5  A6     A7  A8  A9  A10  A11  A12  A13   A14  Class
-0    15776156   1  22.08  11.46   2   4   4  1.585   0   0    0    1    2  100  1213      0
-1    15739548   0  22.67   7.00   2   8   4  0.165   0   0    0    0    2  160     1      0
-2    15662854   0  29.58   1.75   1   4   4  1.250   0   0    0    1    2  280     1      0
-3    15687688   0  21.67  11.50   1   5   3  0.000   1   1   11    1    2    0     1      1
-4    15715750   1  20.17   8.17   2   6   4  1.960   1   1   14    0    2   60   159      1
 
 
-================================================================================
-CELL 3: Preprocessing, Scaling & Train-Test Split
-================================================================================
-[CODE]
+
 # Drop non-feature ID column and target label
 X = df.drop(['CustomerID', 'Class'], axis=1)
 y = df['Class']
@@ -67,16 +45,10 @@ print("Number of features:", x_train.shape[1])
 print("Train rows:", x_train.shape[0])
 print("Test rows:", x_test.shape[0])
 
-[OUTPUT]
-Number of features: 14
-Train rows: 552
-Test rows: 138
 
 
-================================================================================
-CELL 4: Autoencoder Architecture Definition
-================================================================================
-[CODE]
+
+
 input_dim = x_train.shape[1]
 
 # Encoder
@@ -104,24 +76,10 @@ model = tf.keras.models.Sequential([
 model.compile(optimizer='adam', loss='mean_squared_error')
 model.summary()
 
-[OUTPUT]
-Model: "Autoencoder"
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
-┃ Layer (type)                         ┃ Output Shape                ┃         Param # ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
-│ Encoder (Sequential)                 │ (None, 8)                   │           1,144 │
-├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
-│ Decoder (Sequential)                 │ (None, 14)                  │           1,150 │
-└──────────────────────────────────────┴─────────────────────────────┴─────────────────┘
- Total params: 2,294 (8.96 KB)
- Trainable params: 2,294 (8.96 KB)
- Non-trainable params: 0 (0.00 B)
 
 
-================================================================================
-CELL 5: Model Training
-================================================================================
-[CODE]
+
+
 history = model.fit(
     x_train, 
     x_train, 
@@ -131,20 +89,9 @@ history = model.fit(
     shuffle=True
 )
 
-[OUTPUT]
-Epoch 1/50  - loss: 0.9635 - val_loss: 1.0915
-Epoch 2/50  - loss: 0.9325 - val_loss: 1.0670
-Epoch 3/50  - loss: 0.8931 - val_loss: 1.0365
-... [Epochs 4 to 47 omitted for brevity] ...
-Epoch 48/50 - loss: 0.2136 - val_loss: 0.4051
-Epoch 49/50 - loss: 0.2104 - val_loss: 0.3991
-Epoch 50/50 - loss: 0.2074 - val_loss: 0.3952
 
 
-================================================================================
-CELL 6: Training & Validation Loss Plot
-================================================================================
-[CODE]
+
 plt.figure(figsize=(8, 4.5))
 plt.plot(history.history['loss'], label='Train Loss')
 plt.plot(history.history['val_loss'], label='Val Loss')
@@ -155,14 +102,9 @@ plt.legend()
 plt.grid(True, linestyle='--', alpha=0.6)
 plt.show()
 
-[OUTPUT]
-(Line plot generated showing Train Loss and Val Loss decreasing smoothly over 50 epochs)
 
 
-================================================================================
-CELL 7: Reconstruction Error & Threshold Calculation
-================================================================================
-[CODE]
+
 # Predict reconstructed features on test data
 predictions = model.predict(x_test)
 
@@ -176,16 +118,10 @@ anomalies = (mse > threshold).astype(int)
 print(f"Threshold: {threshold:.4f}")
 print(f"Number of Anomalies: {np.sum(anomalies)}")
 
-[OUTPUT]
-5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 34ms/step
-Threshold: 0.5154
-Number of Anomalies: 7
 
 
-================================================================================
-CELL 8: Anomaly Threshold Visualization
-================================================================================
-[CODE]
+
+
 plt.figure(figsize=(10, 5))
 plt.plot(mse, marker='o', linestyle='', markersize=4, label='MSE')
 plt.axhline(threshold, color='r', linestyle='--', label=f'Threshold ({threshold:.2f})')
@@ -196,14 +132,9 @@ plt.legend()
 plt.grid(True, linestyle='--', alpha=0.5)
 plt.show()
 
-[OUTPUT]
-(Scatter plot of sample indices vs MSE error with a red dashed line at threshold 0.52)
 
 
-================================================================================
-CELL 9: Feature Profile Reconstruction (Sample 0)
-================================================================================
-[CODE]
+
 sample_idx = 0
 
 plt.figure(figsize=(10, 5))
@@ -216,14 +147,10 @@ plt.legend()
 plt.grid(True, linestyle='--', alpha=0.5)
 plt.show()
 
-[OUTPUT]
-(Line chart comparing 14 original features vs. 14 reconstructed features for Sample 0)
 
 
-================================================================================
-CELL 10: Evaluation (Confusion Matrix & Classification Report)
-================================================================================
-[CODE]
+
+
 plt.figure(figsize=(6, 4.75))
 sns.heatmap(confusion_matrix(y_test, anomalies), annot=True, fmt='d', cmap='Blues')
 plt.xlabel('Predicted Anomaly (0 = Normal, 1 = Anomaly)')
@@ -234,15 +161,3 @@ plt.show()
 print("Classification Report:")
 print(classification_report(y_test, anomalies))
 
-[OUTPUT]
-(Heatmap showing confusion matrix counts: TN=74, FP=3, FN=57, TP=4)
-
-Classification Report:
-              precision    recall  f1-score   support
-
-           0       0.56      0.96      0.71        77
-           1       0.57      0.07      0.12        61
-
-    accuracy                           0.57       138
-   macro avg       0.57      0.51      0.41       138
-weighted avg       0.57      0.57      0.45       138
