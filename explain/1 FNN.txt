@@ -1,33 +1,16 @@
-================================================================================
-          PART 1: COMPLETE GOOGLE COLAB CODE AND CELL OUTPUTS
-================================================================================
 
-[CELL 1] - Import Libraries
---------------------------------------------------------------------------------
--- CODE:
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
 from keras.datasets import mnist
 
--- OUTPUT:
-(No output generated)
 
 
-[CELL 2] - Load MNIST Dataset
---------------------------------------------------------------------------------
--- CODE:
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
 
--- OUTPUT:
-Downloading data from https://storage.googleapis.com/tensorflow/tf-keras-datasets/mnist.npz
-11490434/11490434 ━━━━━━━━━━━━━━━━━━━━ 3s 0us/step
 
 
-[CELL 3] - Inspect Data Shapes
---------------------------------------------------------------------------------
--- CODE:
 #shape of numpy arrays
 print(f"Shape of X_train {x_train.shape}")
 print(f"Shape of y_train {y_train.shape}")
@@ -36,65 +19,36 @@ print(f"Shape of y_test  {y_test.shape}")
 # x_train( 60k images of 28*28 dimention) Pixel values range from 0 to 255.
 # y_train: digit labels (integers in range 0-9)
 
--- OUTPUT:
-Shape of X_train (60000, 28, 28)
-Shape of y_train (60000,)
-Shape of x_test  (10000, 28, 28)
-Shape of y_test  (10000,)
 
 
-[CELL 4] - Display Sample Image and Label
---------------------------------------------------------------------------------
--- CODE:
 #displaying the image
 plt.imshow(x_train[25])
 plt.show()
 
+
+
 #printing corresponding label
 print(y_train[25])
 
--- OUTPUT:
-[Visual Output: Matplotlib plot showing 28x28 heatmap of handwritten digit '2']
-2
 
 
-[CELL 5] - Check Unique Class Labels
---------------------------------------------------------------------------------
--- CODE:
 #unique values in Y_rain
 print(np.unique(y_train))
 print(np.unique(y_test))
 
--- OUTPUT:
-[0 1 2 3 4 5 6 7 8 9]
-[0 1 2 3 4 5 6 7 8 9]
 
-
-[CELL 6] - Normalize Pixel Values
---------------------------------------------------------------------------------
--- CODE:
 #scaling the values
 x_train = x_train/255
 x_test = x_test/255
 # 0/255 = 255
 #255/255 = 1 maximum value
 
--- OUTPUT:
-(No output generated)
 
-
-[CELL 7] - Verify Normalized Shapes
---------------------------------------------------------------------------------
--- CODE:
 print(x_train.shape, x_test.shape)
 
--- OUTPUT:
-(60000, 28, 28) (10000, 28, 28)
 
 
-[CELL 8] - Define and Compile Neural Network
---------------------------------------------------------------------------------
--- CODE:
+
 model = keras.Sequential([
     keras.layers.Flatten(input_shape=(28,28)),
     keras.layers.Dense(50,activation='relu',name='L1'),
@@ -102,16 +56,14 @@ model = keras.Sequential([
     keras.layers.Dense(10,activation='softmax',name='L3')
 ])
 
+
+
 model.compile(optimizer="sgd",loss=tf.keras.losses.SparseCategoricalCrossentropy(),
               metrics=['accuracy'])
 
--- OUTPUT:
-(No output generated)
 
 
-[CELL 9] - Model Training (10 Epochs)
---------------------------------------------------------------------------------
--- CODE:
+
 # Training the model
 history = model.fit(x_train, y_train,
               batch_size=30,
@@ -119,43 +71,15 @@ history = model.fit(x_train, y_train,
               validation_data=(x_test, y_test),
               shuffle=True)
 
--- OUTPUT:
-Epoch 1/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 32s 14ms/step - accuracy: 0.8076 - loss: 0.6908 - val_accuracy: 0.9099 - val_loss: 0.3149
-Epoch 2/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 23s 7ms/step - accuracy: 0.9136 - loss: 0.2986 - val_accuracy: 0.9278 - val_loss: 0.2536
-Epoch 3/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 24s 9ms/step - accuracy: 0.9280 - loss: 0.2501 - val_accuracy: 0.9367 - val_loss: 0.2208
-Epoch 4/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 19s 8ms/step - accuracy: 0.9365 - loss: 0.2199 - val_accuracy: 0.9437 - val_loss: 0.1982
-Epoch 5/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 18s 9ms/step - accuracy: 0.9427 - loss: 0.1978 - val_accuracy: 0.9467 - val_loss: 0.1813
-Epoch 6/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 16s 8ms/step - accuracy: 0.9478 - loss: 0.1804 - val_accuracy: 0.9517 - val_loss: 0.1681
-Epoch 7/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 16s 8ms/step - accuracy: 0.9523 - loss: 0.1659 - val_accuracy: 0.9546 - val_loss: 0.1576
-Epoch 8/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 24s 10ms/step - accuracy: 0.9555 - loss: 0.1535 - val_accuracy: 0.9580 - val_loss: 0.1488
-Epoch 9/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 14s 7ms/step - accuracy: 0.9584 - loss: 0.1428 - val_accuracy: 0.9592 - val_loss: 0.1413
-Epoch 10/10
-2000/2000 ━━━━━━━━━━━━━━━━━━━━ 23s 8ms/step - accuracy: 0.9610 - loss: 0.1335 - val_accuracy: 0.9608 - val_loss: 0.1350
 
 
-[CELL 10] - Combined Metrics Plotting
---------------------------------------------------------------------------------
--- CODE:
+
 import seaborn as sns
 sns.lineplot(model.history.history)
 
--- OUTPUT:
-<Axes: >
-[Visual Output: Line plot showing accuracy, val_accuracy, loss, and val_loss curves across 10 epochs]
 
 
-[CELL 11] - Subplots: Accuracy & Loss vs Epochs
---------------------------------------------------------------------------------
--- CODE:
+
 # Plotting the Model Accuracy & Model Loss vs Epochs
 plt.figure(figsize=[15,8])
 
@@ -178,33 +102,18 @@ plt.xlabel('Epoch', size=15)
 plt.legend(['train', 'test'], loc='upper left')
 plt.show()
 
--- OUTPUT:
-[Visual Output: Two side-by-side plots:
- - Subplot 1 (Left): Model Accuracy training vs test curve rising from ~81% to ~96%
- - Subplot 2 (Right): Model Loss training vs test curve dropping from ~0.69 to ~0.13]
 
-
-[CELL 12] - Evaluation on Test Set
---------------------------------------------------------------------------------
--- CODE:
 loss, accuracy = model.evaluate(x_test, y_test)
 
--- OUTPUT:
-313/313 ━━━━━━━━━━━━━━━━━━━━ 3s 9ms/step - accuracy: 0.9608 - loss: 0.1350
 
 
-[CELL 13] - Test Image Prediction & Verification
---------------------------------------------------------------------------------
--- CODE:
+
 predicted_value = model.predict(x_test)
 plt.imshow(x_test[15])
 plt.show()
 print(np.argmax(predicted_value[15], axis=0))
 
--- OUTPUT:
-313/313 ━━━━━━━━━━━━━━━━━━━━ 2s 4ms/step
-[Visual Output: Matplotlib plot displaying handwritten digit '5']
-5
+
 
 
 ================================================================================
