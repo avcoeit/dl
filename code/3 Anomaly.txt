@@ -1,0 +1,163 @@
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix, classification_report
+
+import tensorflow as tf
+from tensorflow.keras import layers, models
+
+# Enable inline plotting in Jupyter
+%matplotlib inline
+
+# Fix random seed for reproducibility
+np.random.seed(42)
+tf.random.set_seed(42)
+
+
+# Direct relative path since the CSV is in the same folder as the notebook
+df = pd.read_csv('Credit_Card_Applications.csv')
+
+print("Dataset Shape:", df.shape)
+df.head()
+
+
+
+
+# Drop non-feature ID column and target label
+X = df.drop(['CustomerID', 'Class'], axis=1)
+y = df['Class']
+
+# Standardize numerical features
+scaler = StandardScaler()
+X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+
+# Split into 80% train and 20% test
+x_train, x_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print("Number of features:", x_train.shape[1])
+print("Train rows:", x_train.shape[0])
+print("Test rows:", x_test.shape[0])
+
+
+
+
+
+input_dim = x_train.shape[1]
+
+# Encoder
+encoder = tf.keras.models.Sequential([
+    layers.Input(shape=(input_dim,)),
+    layers.Dense(32, activation='relu'),
+    layers.Dense(16, activation='relu'),
+    layers.Dense(8, activation='relu')
+], name='Encoder')
+
+# Decoder
+decoder = tf.keras.models.Sequential([
+    layers.Input(shape=(8,)),
+    layers.Dense(16, activation='relu'),
+    layers.Dense(32, activation='relu'),
+    layers.Dense(input_dim, activation='linear')
+], name='Decoder')
+
+# Combined Model
+model = tf.keras.models.Sequential([
+    encoder,
+    decoder
+], name='Autoencoder')
+
+model.compile(optimizer='adam', loss='mean_squared_error')
+model.summary()
+
+
+
+
+
+history = model.fit(
+    x_train, 
+    x_train, 
+    validation_data=(x_test, x_test),
+    epochs=50,
+    batch_size=32,
+    shuffle=True
+)
+
+
+
+
+plt.figure(figsize=(8, 4.5))
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Training & Validation Loss (MSE)')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.show()
+
+
+
+
+# Predict reconstructed features on test data
+predictions = model.predict(x_test)
+
+# Compute Mean Squared Error (MSE) per row
+mse = np.mean(np.power(x_test.values - predictions, 2), axis=1)
+
+# Set 95th percentile threshold
+threshold = np.percentile(mse, 95)
+anomalies = (mse > threshold).astype(int)
+
+print(f"Threshold: {threshold:.4f}")
+print(f"Number of Anomalies: {np.sum(anomalies)}")
+
+
+
+
+
+plt.figure(figsize=(10, 5))
+plt.plot(mse, marker='o', linestyle='', markersize=4, label='MSE')
+plt.axhline(threshold, color='r', linestyle='--', label=f'Threshold ({threshold:.2f})')
+plt.xlabel('Sample Index')
+plt.ylabel('MSE')
+plt.title('Anomaly Detection Results')
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.show()
+
+
+
+
+sample_idx = 0
+
+plt.figure(figsize=(10, 5))
+plt.plot(x_test.iloc[sample_idx].values, label='Original Profile', marker='o')
+plt.plot(predictions[sample_idx], label='Reconstructed Profile', marker='x')
+plt.xlabel('Feature Index')
+plt.ylabel('Standardized Value')
+plt.title(f'Original vs Reconstructed Features (Sample {sample_idx})')
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.show()
+
+
+
+
+
+plt.figure(figsize=(6, 4.75))
+sns.heatmap(confusion_matrix(y_test, anomalies), annot=True, fmt='d', cmap='Blues')
+plt.xlabel('Predicted Anomaly (0 = Normal, 1 = Anomaly)')
+plt.ylabel('True Class Label')
+plt.title('Confusion Matrix')
+plt.show()
+
+print("Classification Report:")
+print(classification_report(y_test, anomalies))
+

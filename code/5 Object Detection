@@ -1,0 +1,40 @@
+import matplotlib.pyplot as plt
+from keras.applications.vgg16 import VGG16, decode_predictions, preprocess_input
+from tensorflow.keras.preprocessing.image import img_to_array, load_img
+
+# 1. Load the model once
+model = VGG16()
+
+# 2. List of image filenames (make sure extensions match your actual files, e.g., .jpg)
+image_files = ['download.jpg', 'download2.png', 'download3.jpg']
+
+# 3. Create a 3-row grid: column 1 for the image, column 2 for the predictions
+fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(12, 10))
+
+for i, img_path in enumerate(image_files):
+    # Load and preprocess
+    orig_img = load_img(img_path)
+    input_img = load_img(img_path, target_size=(224, 224))
+    img_array = img_to_array(input_img).reshape((1, 224, 224, 3))
+    processed_img = preprocess_input(img_array)
+
+    # Predict and decode top 5
+    preds = model.predict(processed_img)
+    top_5 = decode_predictions(preds, top=5)[0]
+
+    labels = [p[1].replace('_', ' ').title() for p in top_5][::-1]
+    scores = [p[2] * 100 for p in top_5][::-1]
+
+    # Column 1: Display Image
+    axes[i, 0].imshow(orig_img)
+    axes[i, 0].set_title(f'{img_path}\nTop: {labels[-1]} ({scores[-1]:.1f}%)')
+    axes[i, 0].axis('off')
+
+    # Column 2: Bar Chart
+    axes[i, 1].barh(labels, scores, color='steelblue')
+    axes[i, 1].set_xlim(0, 100)
+    axes[i, 1].set_xlabel('Confidence (%)')
+    axes[i, 1].set_title('Top 5 Predictions')
+
+plt.tight_layout()
+plt.show()
