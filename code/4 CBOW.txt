@@ -1,118 +1,175 @@
-import re
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, Lambda, Dense
-import matplotlib.pyplot as plt
+from tensorflow.keras.preprocessing.text import Tokenizer
 
-# ==========================================
-# a. Data Preparation
-# ==========================================
 
-# Input corpus
-raw_data = """Deep learning (also known as deep structured learning) is part of a broader family of machine learning methods based on artificial neural networks with representation learning. Learning can be supervised, semi-supervised or unsupervised. Deep-learning architectures such as deep neural networks, deep belief networks, deep reinforcement learning, recurrent neural networks, convolutional neural networks and Transformers have been applied to fields including computer vision, speech recognition, natural language processing, machine translation, bioinformatics, drug design, medical image analysis, climate science, material inspection and board game programs, where they have produced results comparable to and in some cases surpassing human expert performance."""
+# A. DATA PREPARATION
 
-# Step 1: Split raw text into sentences
-sentences = raw_data.split('.')
+text = """
+I love machine learning
+I love deep learning
+machine learning is interesting
+deep learning is powerful
+"""
 
-# Step 2: Clean each sentence (remove punctuation, single characters, and convert to lower case)
-clean_sentences = []
-for sentence in sentences:
-    if sentence.strip() == "":
-        continue
-    sentence = re.sub(r'[^A-Za-z0-9]+', ' ', sentence)
-    sentence = re.sub(r'(?:^| )\w (?:$| )', ' ', sentence).strip().lower()
-    clean_sentences.append(sentence)
-
-# Step 3: Tokenize text and build word-to-index mappings
+# Create tokenizer
 tokenizer = Tokenizer()
-tokenizer.fit_on_texts(clean_sentences)
-sequences = tokenizer.texts_to_sequences(clean_sentences)
+tokenizer.fit_on_texts([text])
 
-vocab_size = len(tokenizer.word_index) + 1
-word_to_index = tokenizer.word_index
-index_to_word = {i: w for w, i in word_to_index.items()}
+# Convert text into word IDs
+data = tokenizer.texts_to_sequences([text])[0]
 
-# ==========================================
-# b. Generate Training Data
-# ==========================================
+# Get vocabulary
+word_index = tokenizer.word_index
+vocab_size = len(word_index) + 1
 
-context_size = 2  # Window: 2 words left, 2 words right (total 4 context words)
-X, Y = [], []
+print("Vocabulary:")
+print(word_index)
 
-for seq in sequences:
-    for i in range(context_size, len(seq) - context_size):
-        target = seq[i]
-        context = [seq[i - 2], seq[i - 1], seq[i + 1], seq[i + 2]]
-        X.append(context)
-        Y.append(target)
+print("\nEncoded Data:")
+print(data)
 
+
+
+# B. GENERATE CBOW TRAINING DATA
+
+
+X = []
+y = []
+
+# One word before + one word after target word
+window = 1
+
+for i in range(window, len(data) - window):
+    
+    # Context words
+    context = (
+        data[i - window:i] + data[i + 1:i + window + 1]
+    )
+    
+    # Target word
+    target = data[i]
+    
+    X.append(context)
+    y.append(target)
+
+# Convert to NumPy arrays
 X = np.array(X)
-Y = np.array(Y)
+y = np.array(y)
 
-# ==========================================
-# c. Train Model
-# ==========================================
+# Convert target words to one-hot encoding
+y = tf.keras.utils.to_categorical(y, num_classes=vocab_size)
 
-emb_size = 10  # Dimension of the embedding vectors
+print("\nTraining Data:")
+print("X =")
+print(X)
 
-# CBOW Neural Network architecture
+print("\nTarget =")
+print(y)
+
+
+
+# C. BUILD CBOW MODEL
+
 model = Sequential([
-    Embedding(input_dim=vocab_size, output_dim=emb_size, input_length=2 * context_size),
-    Lambda(lambda x: tf.reduce_mean(x, axis=1)),  # Average the context word embeddings
-    Dense(256, activation='relu'),
-    Dense(512, activation='relu'),
-    Dense(vocab_size, activation='softmax')        # Predict the probability of target word
+    
+    # Convert word IDs into 10-dimensional embeddings
+    Embedding(
+        input_dim=vocab_size,
+        output_dim=10
+    ),
+    
+    # Average the context word embeddings
+    Lambda(
+        lambda x: tf.reduce_mean(x, axis=1)
+    ),
+    
+    # Predict the target word
+    Dense(
+        vocab_size,
+        activation="softmax"
+    )
 ])
 
+
+
+# D. COMPILE MODEL
+
+
 model.compile(
-    loss='sparse_categorical_crossentropy',
-    optimizer='adam',
-    metrics=['accuracy']
+    optimizer="adam",
+    loss="categorical_crossentropy",
+    metrics=["accuracy"]
 )
 
-# Train the model and save the history for graphing
-history = model.fit(X, Y, epochs=80, batch_size=32, verbose=0)
 
-# ==========================================
-# d. Output & Visualization
-# ==========================================
 
-def predict_target(context_words):
-    """Predicts target center word from given 4 context words."""
-    context_indices = [word_to_index[w] for w in context_words]
-    x_test = np.array([context_indices])
-    predictions = model.predict(x_test, verbose=0)
-    best_index = np.argmax(predictions[0])
-    return index_to_word.get(best_index)
+# E. TRAIN MODEL
 
-# Test cases
-test_sentences = [
-    ["known", "as", "learning", "is"],                 # Target: "structured"
-    ["cases", "surpassing", "expert", "performance"]   # Target: "human"
-]
 
-for context in test_sentences:
-    prediction = predict_target(context)
-    print(f"Context: {context} -> Predicted Target: {prediction}")
+print("\nTraining CBOW Model...")
 
-# Plotting loss and accuracy curves
-plt.figure(figsize=(10, 4))
+model.fit(
+    X,
+    y,
+    epochs=200,
+    verbose=0
+)
 
-plt.subplot(1, 2, 1)
-plt.plot(history.history['loss'], color='red')
-plt.title('Training Loss')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.grid(True)
+print("Training completed.")
 
-plt.subplot(1, 2, 2)
-plt.plot(history.history['accuracy'], color='blue')
-plt.title('Training Accuracy')
-plt.xlabel('Epochs')
-plt.ylabel('Accuracy')
-plt.grid(True)
 
-plt.tight_layout()
-plt.show()
+
+# F. PREDICTION
+
+
+# Context words for prediction
+context = ["love", "learning"]
+
+# Convert context words to their IDs
+input_data = np.array([
+    [word_index[word] for word in context]
+])
+
+# Predict probabilities
+prediction = model.predict(
+    input_data,
+    verbose=0
+)
+
+# Get word ID with highest probability
+predicted_id = np.argmax(prediction[0])
+
+# Reverse vocabulary: ID -> word
+reverse_word = {
+    value: key for key, value in word_index.items()
+}
+
+# Get predicted word
+predicted_word = reverse_word.get(
+    predicted_id,
+    "Unknown"
+)
+
+
+
+# G. DISPLAY RESULT
+
+print("\n------------------------------")
+print("CBOW Prediction")
+print("------------------------------")
+
+print("Context Words :", context)
+print("Predicted Word:", predicted_word)
+
+print("\nPrediction Probabilities:")
+
+for word_id, probability in enumerate(prediction[0]):
+    
+    if word_id in reverse_word:
+        print(
+            f"{reverse_word[word_id]:12s} : "
+            f"{probability:.4f}"
+        )
