@@ -1,40 +1,116 @@
+# 1. Import required libraries
+import tensorflow as tf
+from tensorflow.keras.applications import VGG16
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
 import matplotlib.pyplot as plt
-from keras.applications.vgg16 import VGG16, decode_predictions, preprocess_input
-from tensorflow.keras.preprocessing.image import img_to_array, load_img
 
-# 1. Load the model once
-model = VGG16()
 
-# 2. List of image filenames (make sure extensions match your actual files, e.g., .jpg)
-image_files = ['download.jpg', 'download2.png', 'download3.jpg']
+# 2. Load and preprocess CIFAR-10 dataset
 
-# 3. Create a 3-row grid: column 1 for the image, column 2 for the predictions
-fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(12, 10))
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
 
-for i, img_path in enumerate(image_files):
-    # Load and preprocess
-    orig_img = load_img(img_path)
-    input_img = load_img(img_path, target_size=(224, 224))
-    img_array = img_to_array(input_img).reshape((1, 224, 224, 3))
-    processed_img = preprocess_input(img_array)
+# Use a smaller dataset to make training faster for practical exams
+x_train = x_train[:5000]
+y_train = y_train[:5000]
+x_test = x_test[:1000]
+y_test = y_test[:1000]
 
-    # Predict and decode top 5
-    preds = model.predict(processed_img)
-    top_5 = decode_predictions(preds, top=5)[0]
+# Resize images from 32x32 to 224x224 for VGG16
+x_train = tf.image.resize(x_train, (224, 224))
+x_test = tf.image.resize(x_test, (224, 224))
 
-    labels = [p[1].replace('_', ' ').title() for p in top_5][::-1]
-    scores = [p[2] * 100 for p in top_5][::-1]
+# Preprocess images for VGG16
+x_train = tf.keras.applications.vgg16.preprocess_input(x_train)
+x_test = tf.keras.applications.vgg16.preprocess_input(x_test)
 
-    # Column 1: Display Image
-    axes[i, 0].imshow(orig_img)
-    axes[i, 0].set_title(f'{img_path}\nTop: {labels[-1]} ({scores[-1]:.1f}%)')
-    axes[i, 0].axis('off')
 
-    # Column 2: Bar Chart
-    axes[i, 1].barh(labels, scores, color='steelblue')
-    axes[i, 1].set_xlim(0, 100)
-    axes[i, 1].set_xlabel('Confidence (%)')
-    axes[i, 1].set_title('Top 5 Predictions')
+# 3. Load pre-trained VGG16 model
 
-plt.tight_layout()
+
+base_model = VGG16(
+    weights='imagenet',
+    include_top=False,
+    input_shape=(224, 224, 3)
+)
+
+
+# 4. Freeze lower convolutional layers
+
+
+base_model.trainable = False
+
+
+# 5. Add a custom classifier
+
+
+model = Sequential([
+    base_model,
+    GlobalAveragePooling2D(),
+    Dense(128, activation='relu'),
+    Dense(10, activation='softmax')
+])
+
+
+# 6. Compile and train the classifier
+
+model.compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+print("Training the custom classifier...")
+
+history = model.fit(
+    x_train,
+    y_train,
+    epochs=3,
+    batch_size=32,
+    validation_data=(x_test, y_test)
+)
+
+
+# 7. Evaluate the model
+
+test_loss, test_accuracy = model.evaluate(x_test, y_test)
+
+print("\nTest Accuracy:", test_accuracy)
+
+
+# 8. Fine-tuning: Unfreeze some layers
+
+
+base_model.trainable = True
+
+# Freeze all layers except the last few layers
+for layer in base_model.layers[:-4]:
+    layer.trainable = False
+
+# Recompile with a smaller learning rate
+model.compile(
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001),
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+print("\nFine-tuning the model...")
+
+history_fine = model.fit(
+    x_train,
+    y_train,
+    epochs=2,
+    batch_size=32,
+    validation_data=(x_test, y_test)
+)
+
+
+# 9. Plot accuracy
+
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
 plt.show()
