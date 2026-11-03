@@ -1,163 +1,135 @@
+# ECG Anomaly Detection using Autoencoder
 
+# 1. Import libraries
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
+import tensorflow as tf
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import accuracy_score
 
-import tensorflow as tf
-from tensorflow.keras import layers, models
-
-# Enable inline plotting in Jupyter
-%matplotlib inline
-
-# Fix random seed for reproducibility
-np.random.seed(42)
-tf.random.set_seed(42)
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense
 
 
-# Direct relative path since the CSV is in the same folder as the notebook
-df = pd.read_csv('Credit_Card_Applications.csv')
+# 2. Load ECG dataset
+url = "https://storage.googleapis.com/download.tensorflow.org/data/ecg.csv"
 
-print("Dataset Shape:", df.shape)
-df.head()
+data = pd.read_csv(url, header=None)
+
+print("Dataset Shape:", data.shape)
 
 
+# 3. Separate features and labels
+X = data.iloc[:, :-1].values
+y = data.iloc[:, -1].values
 
 
-# Drop non-feature ID column and target label
-X = df.drop(['CustomerID', 'Class'], axis=1)
-y = df['Class']
-
-# Standardize numerical features
-scaler = StandardScaler()
-X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
-
-# Split into 80% train and 20% test
+# 4. Split dataset
 x_train, x_test, y_train, y_test = train_test_split(
-    X_scaled, y, test_size=0.2, random_state=42, stratify=y
+    X, y, test_size=0.2, stratify=y, random_state=42
 )
 
-print("Number of features:", x_train.shape[1])
-print("Train rows:", x_train.shape[0])
-print("Test rows:", x_test.shape[0])
+
+# 5. Select normal ECG data
+x_train_normal = x_train[y_train == 1]
+x_test_normal = x_test[y_test == 1]
 
 
+# 6. Normalize data
+scaler = MinMaxScaler()
+
+x_train_normal = scaler.fit_transform(x_train_normal)
+x_test_normal = scaler.transform(x_test_normal)
+x_test = scaler.transform(x_test)
 
 
+# 7. Build Autoencoder
+input_layer = Input(shape=(140,))
 
-input_dim = x_train.shape[1]
+encoded = Dense(128, activation='relu')(input_layer)
+encoded = Dense(64, activation='relu')(encoded)
+encoded = Dense(32, activation='relu')(encoded)
 
-# Encoder
-encoder = tf.keras.models.Sequential([
-    layers.Input(shape=(input_dim,)),
-    layers.Dense(32, activation='relu'),
-    layers.Dense(16, activation='relu'),
-    layers.Dense(8, activation='relu')
-], name='Encoder')
+decoded = Dense(64, activation='relu')(encoded)
+decoded = Dense(128, activation='relu')(decoded)
+decoded = Dense(140, activation='sigmoid')(decoded)
 
-# Decoder
-decoder = tf.keras.models.Sequential([
-    layers.Input(shape=(8,)),
-    layers.Dense(16, activation='relu'),
-    layers.Dense(32, activation='relu'),
-    layers.Dense(input_dim, activation='linear')
-], name='Decoder')
-
-# Combined Model
-model = tf.keras.models.Sequential([
-    encoder,
-    decoder
-], name='Autoencoder')
-
-model.compile(optimizer='adam', loss='mean_squared_error')
-model.summary()
+autoencoder = Model(input_layer, decoded)
 
 
+# 8. Compile model
+autoencoder.compile(
+    optimizer='adam',
+    loss='mse'
+)
 
 
-
-history = model.fit(
-    x_train, 
-    x_train, 
-    validation_data=(x_test, x_test),
-    epochs=50,
-    batch_size=32,
+# 9. Train model
+history = autoencoder.fit(
+    x_train_normal,
+    x_train_normal,
+    epochs=20,
+    batch_size=256,
+    validation_data=(x_test_normal, x_test_normal),
     shuffle=True
 )
 
 
-
-
-plt.figure(figsize=(8, 4.5))
-plt.plot(history.history['loss'], label='Train Loss')
-plt.plot(history.history['val_loss'], label='Val Loss')
-plt.title('Training & Validation Loss (MSE)')
-plt.xlabel('Epoch')
+# 10. Plot training loss
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.xlabel('Epochs')
 plt.ylabel('Loss')
+plt.title('Training and Validation Loss')
 plt.legend()
-plt.grid(True, linestyle='--', alpha=0.6)
 plt.show()
 
 
+# 11. Calculate reconstruction error
+train_pred = autoencoder.predict(x_train_normal)
+
+train_error = np.mean(np.square(x_train_normal - train_pred), axis=1)
+
+threshold = np.mean(train_error) + np.std(train_error)
+
+print("Threshold:", threshold)
 
 
-# Predict reconstructed features on test data
-predictions = model.predict(x_test)
+# 12. Detect anomalies
+test_pred = autoencoder.predict(x_test)
 
-# Compute Mean Squared Error (MSE) per row
-mse = np.mean(np.power(x_test.values - predictions, 2), axis=1)
+test_error = np.mean(np.square(x_test - test_pred), axis=1)
 
-# Set 95th percentile threshold
-threshold = np.percentile(mse, 95)
-anomalies = (mse > threshold).astype(int)
-
-print(f"Threshold: {threshold:.4f}")
-print(f"Number of Anomalies: {np.sum(anomalies)}")
+# Normal = 1, Abnormal = 0
+y_pred = np.where(test_error <= threshold, 1, 0)
 
 
+# 13. Calculate accuracy
+accuracy = accuracy_score(y_test, y_pred)
+
+print("Actual Labels:", y_test[:10])
+print("Predicted Labels:", y_pred[:10])
+print("Accuracy:", accuracy * 100, "%")
 
 
-
-plt.figure(figsize=(10, 5))
-plt.plot(mse, marker='o', linestyle='', markersize=4, label='MSE')
-plt.axhline(threshold, color='r', linestyle='--', label=f'Threshold ({threshold:.2f})')
-plt.xlabel('Sample Index')
-plt.ylabel('MSE')
-plt.title('Anomaly Detection Results')
+# 14. Plot reconstruction error
+plt.hist(train_error, bins=50)
+plt.axvline(threshold, color='red', label='Threshold')
+plt.xlabel('Reconstruction Error')
+plt.ylabel('Frequency')
+plt.title('ECG Anomaly Detection')
 plt.legend()
-plt.grid(True, linestyle='--', alpha=0.5)
 plt.show()
 
 
-
-
-sample_idx = 0
-
-plt.figure(figsize=(10, 5))
-plt.plot(x_test.iloc[sample_idx].values, label='Original Profile', marker='o')
-plt.plot(predictions[sample_idx], label='Reconstructed Profile', marker='x')
-plt.xlabel('Feature Index')
-plt.ylabel('Standardized Value')
-plt.title(f'Original vs Reconstructed Features (Sample {sample_idx})')
-plt.legend()
-plt.grid(True, linestyle='--', alpha=0.5)
+# 15. Display ECG signal
+plt.plot(x_test[0])
+plt.title('ECG Signal')
+plt.xlabel('Time')
+plt.ylabel('Amplitude')
 plt.show()
 
-
-
-
-
-plt.figure(figsize=(6, 4.75))
-sns.heatmap(confusion_matrix(y_test, anomalies), annot=True, fmt='d', cmap='Blues')
-plt.xlabel('Predicted Anomaly (0 = Normal, 1 = Anomaly)')
-plt.ylabel('True Class Label')
-plt.title('Confusion Matrix')
-plt.show()
-
-print("Classification Report:")
-print(classification_report(y_test, anomalies))
-
+# If sir gives dataframe = pd.read_csv('/content/ecg.csv', header=None)
